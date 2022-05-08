@@ -6,11 +6,15 @@ float WINDOW_WIDTH = 10;
 float WINDOW_HEIGHT = 10;
 float PARAM_RANGE = 2;
 int iteration = 0;
+int cycle = 10;
+int nx, ny;
 
 PGraphics pg;
 PImage src_img, dest_img;
-float[] Cx = new float[6];
-float[] Cy = new float[6];
+float[] CoeffX = new float[6];
+float[] CoeffY = new float[6];
+float[] DeltaX = new float[6];
+float[] DeltaY = new float[6];
 
 void settings() {
   size(WIDTH, HEIGHT);
@@ -32,34 +36,34 @@ void setup() {
   src_img = pg.get();
   dest_img = createImage(WIDTH, HEIGHT, RGB);
   
-  for (int i=0; i<Cx.length; i++) {
-    Cx[i] = random(2*PARAM_RANGE) - PARAM_RANGE;
-  }
-  for (int i=0; i<Cy.length; i++) {
-    Cy[i] = random(2*PARAM_RANGE) - PARAM_RANGE;
-  }
-  
+  randomizeCoeffs();  
   frameRate(20);
 }
 
+void randomizeCoeffs() {
+  for (int i=0; i<CoeffX.length; i++) {
+    CoeffX[i] = random(2*PARAM_RANGE) - PARAM_RANGE;
+    DeltaX[i] = 0.05 * (2*(int)random(2) - 1);
+  }
+  for (int i=0; i<CoeffY.length; i++) {
+    CoeffY[i] = random(2*PARAM_RANGE) - PARAM_RANGE;
+    DeltaY[i] = 0.05 * (2*(int)random(2) - 1);
+  }
+}
+
 void draw() {
-  iteration++;
   background(0);
   for (int i=0; i<WIDTH; i++) {
     for (int j=0; j<HEIGHT; j++) {
-      float x = WINDOW_WIDTH * (((float)i)/WIDTH - 0.5); // scaling
-      float y = WINDOW_HEIGHT * (((float)j)/HEIGHT - 0.5);
+      float x = map(i, 0, WIDTH, -WINDOW_WIDTH/2, WINDOW_WIDTH/2);
+      float y = map(j, 0, HEIGHT, -WINDOW_HEIGHT/2, WINDOW_HEIGHT/2);
       
       // transformations
-      float xnew = //Cx[9]*x*x*x + Cx[8]*x*x*y + Cx[7]*x*y*y + Cx[6]*y*y*y;
-                  Cx[5]*x*x + Cx[4]*y*y + Cx[3]*x*y +
-                  Cx[2]*x + Cx[1]*y + Cx[0];
-      float ynew = //Cy[9]*x*x*x + Cy[8]*x*x*y + Cy[7]*x*y*y + Cy[6]*y*y*y +
-                  Cy[5]*x*x + Cy[4]*y*y + Cy[3]*x*y +
-                  Cy[2]*x + Cy[1]*y + Cy[0];
+      PVector v = HyperbolicTransform(x, y, CoeffX, CoeffY);
       
-      int inew = (int) (SRC_WIDTH * (xnew/WINDOW_WIDTH + 0.5));
-      int jnew = (int) (SRC_HEIGHT * (ynew/WINDOW_HEIGHT + 0.5));
+      int inew = (int) map(v.x, -WINDOW_WIDTH/2, WINDOW_WIDTH/2, 0, SRC_WIDTH);
+      int jnew = (int) map(v.y, -WINDOW_HEIGHT/2, WINDOW_HEIGHT/2, 0, SRC_HEIGHT);
+      
       while (inew < 0) {
         inew += SRC_WIDTH;
       }
@@ -78,10 +82,28 @@ void draw() {
   dest_img.updatePixels();
   image(dest_img, 0, 0);
   
-  int nx = int(random(Cx.length));
-  float r = random(0.01*(1+nx))+0.005;
-  Cx[nx] = (Cx[nx] + r + PARAM_RANGE) % (2*PARAM_RANGE) - PARAM_RANGE;
-  int ny = int(random(Cy.length));
-  r = random(0.01*(1+ny)) + 0.005;
-  Cy[ny] = (Cy[ny] + r + PARAM_RANGE) % (2*PARAM_RANGE) - PARAM_RANGE;
+  if (cycle == 0) {
+    cycle = (int)random(10) + 10;
+    nx = int(random(CoeffX.length));
+    ny = int(random(CoeffY.length));
+  }
+  
+  float nextVal = CoeffX[nx] + DeltaX[nx];
+  if (nextVal < -PARAM_RANGE || nextVal > PARAM_RANGE) {
+    DeltaX[nx] = -DeltaX[nx];
+  }
+  CoeffX[nx] += DeltaX[nx];
+  
+  nextVal = CoeffY[ny] + DeltaY[ny];
+  if (nextVal < -PARAM_RANGE || nextVal > PARAM_RANGE) {
+    DeltaY[ny] = -DeltaX[ny];
+  }
+  CoeffY[ny] += DeltaY[ny];
+  
+  cycle--;
+  iteration += 2;
+  
+  if (iteration % 1000 == 0) {
+    randomizeCoeffs();
+  }
 }
